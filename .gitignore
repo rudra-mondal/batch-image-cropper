@@ -1,0 +1,4 @@
+dist/
+build/
+.venv
+Precision_Batch_Cropper.spec
