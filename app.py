@@ -373,7 +373,9 @@ class MainWindow(QMainWindow):
         left_panel.setFrameShape(QFrame.Shape.StyledPanel)
         left_panel_layout = QVBoxLayout(left_panel)
         self.uncropped_list = QListWidget()
+        self.uncropped_list.setToolTip("Select an image to edit and crop")
         self.ready_list = QListWidget()
+        self.ready_list.setToolTip("Images that have been cropped and are ready to save")
         left_panel_layout.addWidget(QLabel("<b>Uncropped Images</b>"))
         left_panel_layout.addWidget(self.uncropped_list)
         left_panel_layout.addWidget(QLabel("<b>Ready to Export</b>"))
@@ -388,17 +390,21 @@ class MainWindow(QMainWindow):
         settings_layout = QGridLayout()
         settings_layout.addWidget(QLabel("Width:"), 0, 0)
         self.width_input = QLineEdit("236")
+        self.width_input.setToolTip("Target width for the exported image")
         settings_layout.addWidget(self.width_input, 0, 1)
         settings_layout.addWidget(QLabel("Height:"), 1, 0)
         self.height_input = QLineEdit("295")
+        self.height_input.setToolTip("Target height for the exported image")
         settings_layout.addWidget(self.height_input, 1, 1)
         settings_layout.addWidget(QLabel("Units:"), 2, 0)
         self.units_combo = QComboBox()
         self.units_combo.addItems(["Pixels", "Inches", "Centimeters"])
         self.units_combo.setCurrentText("Pixels")
+        self.units_combo.setToolTip("Measurement unit for the target dimensions")
         settings_layout.addWidget(self.units_combo, 2, 1)
         settings_layout.addWidget(QLabel("DPI:"), 3, 0)
         self.dpi_input = QLineEdit("300")
+        self.dpi_input.setToolTip("Dots Per Inch (DPI) for print quality, used only for physical units")
         settings_layout.addWidget(self.dpi_input, 3, 1)
         settings_group.setLayout(settings_layout)
         right_panel_layout.addWidget(settings_group)
@@ -573,8 +579,22 @@ class MainWindow(QMainWindow):
         self.statusBar.showMessage("Ready")
         
     def update_ui_state(self):
-        self.confirm_button.setEnabled(self.uncropped_list.count() > 0 and self.uncropped_list.currentItem() is not None)
-        self.save_all_button.setEnabled(len(self.ready_to_export) > 0)
+        can_confirm = self.uncropped_list.count() > 0 and self.uncropped_list.currentItem() is not None
+        self.confirm_button.setEnabled(can_confirm)
+        if can_confirm:
+            self.confirm_button.setToolTip("Confirm the current crop and proceed to the next image")
+        else:
+            if self.uncropped_list.count() == 0:
+                self.confirm_button.setToolTip("No uncropped images available. Drag and drop images to begin.")
+            else:
+                self.confirm_button.setToolTip("Select an uncropped image first to confirm")
+
+        can_save = len(self.ready_to_export) > 0
+        self.save_all_button.setEnabled(can_save)
+        if can_save:
+            self.save_all_button.setToolTip(f"Save {len(self.ready_to_export)} ready images")
+        else:
+            self.save_all_button.setToolTip("No images ready to save yet")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
