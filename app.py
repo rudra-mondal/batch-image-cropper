@@ -13,7 +13,8 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QLineEdit,
     QPushButton, QListWidget, QListWidgetItem, QGridLayout,
     QHBoxLayout, QVBoxLayout, QFrame, QFileDialog, QGroupBox,
-    QComboBox, QStatusBar, QMessageBox, QSplitter
+    QComboBox, QStatusBar, QMessageBox, QSplitter,
+    QGraphicsColorizeEffect
 )
 from PySide6.QtGui import (
     QPixmap, QPainter, QColor, QPen, QBrush, QAction, QFont,
@@ -248,15 +249,22 @@ class ImageCanvas(QWidget):
 
         return QRect(crop_x, crop_y, crop_w, crop_h)
 
+
 class ClickableLabel(QLabel):
     """A QLabel that is clickable and animates its color."""
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._color = QColor("#AAAAAA")
 
-        # Color animation setup
-        self.animation = QPropertyAnimation(self, b"color")
+        # ⚡ Bolt Optimization: Use QGraphicsColorizeEffect instead of setStyleSheet
+        # Re-evaluating setStyleSheet many times a second triggers an expensive
+        # style cascade across the widget tree, wasting CPU even when idle.
+        # QGraphicsColorizeEffect operates cleanly at the paint level.
+        self.effect = QGraphicsColorizeEffect(self)
+        self.setGraphicsEffect(self.effect)
+
+        # Color animation setup directly targeting the effect's color property
+        self.animation = QPropertyAnimation(self.effect, b"color")
         self.animation.setDuration(3000) # 3 seconds per color transition
         self.animation.setLoopCount(-1) # Loop forever
         self.animation.setStartValue(QColor("#00A3FF")) # Bright Blue
@@ -267,16 +275,6 @@ class ClickableLabel(QLabel):
     def mousePressEvent(self, event):
         """Opens the link when the label is clicked."""
         QDesktopServices.openUrl(QUrl("https://github.com/rudra-mondal"))
-        
-    # --- Property needed for QPropertyAnimation to work ---
-    @Property(QColor)
-    def color(self):
-        return self._color
-
-    @color.setter
-    def color(self, value):
-        self._color = value
-        self.setStyleSheet(f"color: {self._color.name()};")
 
 
 class MainWindow(QMainWindow):
