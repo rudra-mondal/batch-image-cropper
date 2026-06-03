@@ -503,13 +503,22 @@ class MainWindow(QMainWindow):
             height = float(self.height_input.text())
             dpi = int(self.dpi_input.text())
             units = self.units_combo.currentText()
+
+            w_px, h_px = 0, 0
             if units == "Pixels":
-                return (int(width), int(height))
+                w_px, h_px = int(width), int(height)
             elif units == "Inches":
-                return (int(width * dpi), int(height * dpi))
+                w_px, h_px = int(width * dpi), int(height * dpi)
             elif units == "Centimeters":
                 cm_to_inch = 0.393701
-                return (int(width * cm_to_inch * dpi), int(height * cm_to_inch * dpi))
+                w_px, h_px = int(width * cm_to_inch * dpi), int(height * cm_to_inch * dpi)
+
+            # Security: Prevent denial of service (DoS) via memory exhaustion from massive images
+            MAX_DIMENSION = 16384
+            if w_px <= 0 or h_px <= 0 or w_px > MAX_DIMENSION or h_px > MAX_DIMENSION:
+                return None
+
+            return (w_px, h_px)
         except (ValueError, ZeroDivisionError):
             return None
 
@@ -552,22 +561,26 @@ class MainWindow(QMainWindow):
                 base_name = os.path.basename(file_path)
                 name, ext = os.path.splitext(base_name)
                 output_path = os.path.join(folder, f"{name}_cropped{ext}")
-                img = Image.open(file_path)
-                rect = params['crop_rect']
-                box = (rect.left(), rect.top(), rect.right(), rect.bottom())
-                cropped_img = img.crop(box)
-                target_size = params['target_size']
-                final_img = cropped_img.resize(target_size, Image.Resampling.LANCZOS)
-                dpi_value = (params['dpi'], params['dpi'])
-                if ext.lower() in ['.jpg', '.jpeg']:
-                    final_img.save(output_path, 'jpeg', dpi=dpi_value, quality=95)
-                else:
-                    final_img.save(output_path, dpi=dpi_value)
+
+                # Security: Use context manager to prevent file descriptor leakage
+                with Image.open(file_path) as img:
+                    rect = params['crop_rect']
+                    box = (rect.left(), rect.top(), rect.right(), rect.bottom())
+                    cropped_img = img.crop(box)
+                    target_size = params['target_size']
+                    final_img = cropped_img.resize(target_size, Image.Resampling.LANCZOS)
+                    dpi_value = (params['dpi'], params['dpi'])
+                    if ext.lower() in ['.jpg', '.jpeg']:
+                        final_img.save(output_path, 'jpeg', dpi=dpi_value, quality=95)
+                    else:
+                        final_img.save(output_path, dpi=dpi_value)
+
                 processed_count += 1
                 self.statusBar.showMessage(f"Saving... {processed_count}/{total_count}")
                 QApplication.processEvents()
             except Exception as e:
-                QMessageBox.critical(self, "Save Error", f"Could not save {base_name}.\nError: {e}")
+                # Security: Display a generic message to prevent exposing stack traces / internals
+                QMessageBox.critical(self, "Save Error", f"Could not save {base_name}.\nAn error occurred while processing the image.")
                 break
         QMessageBox.information(self, "Export Complete", f"Successfully saved {processed_count} images to:\n{folder}")
         self.statusBar.showMessage("Ready")
